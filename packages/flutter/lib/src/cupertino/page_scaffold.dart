@@ -165,7 +165,7 @@ class _CupertinoPageScaffoldState extends State<CupertinoPageScaffold> {
       );
     }
 
-    return DecoratedBox(
+    final content = DecoratedBox(
       decoration: BoxDecoration(
         color: CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context)
             ?? CupertinoTheme.of(context).scaffoldBackgroundColor,
@@ -198,6 +198,8 @@ class _CupertinoPageScaffoldState extends State<CupertinoPageScaffold> {
         ],
       ),
     );
+
+    return ScrollNotificationObserver(child: content);
   }
 }
 
