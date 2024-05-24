@@ -2,11 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'bottom_tab_bar.dart';
 import 'colors.dart';
 import 'theme.dart';
+
+/// Number of logical pixels scrolled during which the tab bar's background
+/// fades in or out.
+const _kTabBarScrollUnderAnimationExtent = 10.0;
 
 /// Coordinates tab selection between a [CupertinoTabBar] and a [CupertinoTabScaffold].
 ///
@@ -342,32 +347,36 @@ class _CupertinoTabScaffoldState extends State<CupertinoTabScaffold> with Restor
       ),
     );
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context)
-            ?? CupertinoTheme.of(context).scaffoldBackgroundColor,
-      ),
-      child: Stack(
-        children: <Widget>[
-          // The main content being at the bottom is added to the stack first.
-          content,
-          MediaQuery.withNoTextScaling(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              // Override the tab bar's currentIndex to the current tab and hook in
-              // our own listener to update the [_controller.currentIndex] on top of a possibly user
-              // provided callback.
-              child: widget.tabBar.copyWith(
-                currentIndex: _controller.index,
-                onTap: (int newIndex) {
-                  _controller.index = newIndex;
-                  // Chain the user's original callback.
-                  widget.tabBar.onTap?.call(newIndex);
-                },
+    return ScrollNotificationObserver(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context)
+              ?? CupertinoTheme.of(context).scaffoldBackgroundColor,
+        ),
+        child: Stack(
+          children: <Widget>[
+            // The main content being at the bottom is added to the stack first.
+            content,
+            MediaQuery.withNoTextScaling(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                // Override the tab bar's currentIndex to the current tab and hook in
+                // our own listener to update the [_controller.currentIndex] on top of a possibly user
+                // provided callback.
+                child: _TabBarScrollListener(
+                  tabBar: widget.tabBar.copyWith(
+                    currentIndex: _controller.index,
+                    onTap: (int newIndex) {
+                      _controller.index = newIndex;
+                      // Chain the user's original callback.
+                      widget.tabBar.onTap?.call(newIndex);
+                    },
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -381,6 +390,98 @@ class _CupertinoTabScaffoldState extends State<CupertinoTabScaffold> with Restor
     super.dispose();
   }
 }
+
+class _TabBarScrollListener extends StatefulWidget {
+  const _TabBarScrollListener({
+    required this.tabBar,
+  });
+
+  final CupertinoTabBar tabBar;
+
+  @override
+  State<_TabBarScrollListener> createState() => _TabBarScrollListenerState();
+}
+
+class _TabBarScrollListenerState extends State<_TabBarScrollListener> {
+  ScrollNotificationObserverState? _scrollNotificationObserver;
+  final Map<int, double?> _perTabScrollAnimationValue = {};
+
+  double? get _scrollAnimationValue => _perTabScrollAnimationValue[widget.tabBar.currentIndex];
+
+  void set _scrollAnimationValue(double? value) {
+    _perTabScrollAnimationValue[widget.tabBar.currentIndex] = value;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollNotificationObserver?.removeListener(_handleScrollNotification);
+    _scrollNotificationObserver = ScrollNotificationObserver.maybeOf(context);
+    _scrollNotificationObserver?.addListener(_handleScrollNotification);
+  }
+
+  @override
+  void dispose() {
+    if (_scrollNotificationObserver != null) {
+      _scrollNotificationObserver!.removeListener(_handleScrollNotification);
+      _scrollNotificationObserver = null;
+    }
+    super.dispose();
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification && notification.depth == 0) {
+      final ScrollMetrics metrics = notification.metrics;
+      final oldScrollAnimationValue = _scrollAnimationValue;
+      double scrollExtent = 0.0;
+      switch (metrics.axisDirection) {
+        case AxisDirection.up:
+          scrollExtent = metrics.extentBefore;
+        case AxisDirection.down:
+          scrollExtent = metrics.extentAfter;
+        case AxisDirection.right:
+        case AxisDirection.left:
+        // Scrolled under is only supported in the vertical axis, and should
+        // not be altered based on horizontal notifications of the same
+        // predicate since it could be a 2D scroller.
+          break;
+      }
+
+      if (scrollExtent >= 0 && scrollExtent < _kTabBarScrollUnderAnimationExtent) {
+        setState(() {
+          _scrollAnimationValue = clampDouble(scrollExtent / _kTabBarScrollUnderAnimationExtent, 0, 1);
+        });
+      } else if (scrollExtent > _kTabBarScrollUnderAnimationExtent && oldScrollAnimationValue != 1.0) {
+        setState(() {
+          _scrollAnimationValue = 1.0;
+        });
+      } else if (scrollExtent <= 0 && oldScrollAnimationValue != 0.0) {
+        setState(() {
+          _scrollAnimationValue = 0.0;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Border? effectiveBorder = widget.tabBar.border != null ? Border.lerp(
+      const Border(bottom: BorderSide(width: 0.0, color: Color(0x00000000))),
+      widget.tabBar.border,
+      _scrollAnimationValue ?? 0,
+    ) : null;
+
+    final Color tabBarBackgroundColor = widget.tabBar.backgroundColor ?? CupertinoTheme.of(context).barBackgroundColor;
+    final Color initialBackgroundColor = CupertinoTheme.of(context).scaffoldBackgroundColor;
+    final Color effectiveBackgroundColor = Color.lerp(initialBackgroundColor, tabBarBackgroundColor, _scrollAnimationValue ?? 0)!;
+
+    return widget.tabBar.copyWith(
+      border: effectiveBorder,
+      backgroundColor: effectiveBackgroundColor,
+    );
+  }
+}
+
 
 /// A widget laying out multiple tabs with only one active tab being built
 /// at a time and on stage. Off stage tabs' animations are stopped.
