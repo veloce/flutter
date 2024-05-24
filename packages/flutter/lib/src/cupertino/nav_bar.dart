@@ -261,6 +261,7 @@ class CupertinoNavigationBar extends StatefulWidget implements ObstructingPrefer
     this.trailing,
     this.border = _kDefaultNavBarBorder,
     this.backgroundColor,
+    this.initiallyTransparent = true,
     this.brightness,
     this.padding,
     this.transitionBetweenRoutes = true,
@@ -342,6 +343,18 @@ class CupertinoNavigationBar extends StatefulWidget implements ObstructingPrefer
   /// Defaults to [CupertinoTheme]'s `barBackgroundColor` if null.
   /// {@endtemplate}
   final Color? backgroundColor;
+
+  /// {@template flutter.cupertino.CupertinoNavigationBar.initiallyTransparent}
+  /// Whether the navigation bar appears transparent when no content is scrolled under.
+  ///
+  /// If this is true, the navigation bar's background color will be the same as the
+  /// first [CupertinoPageScaffold] ancestor's background color.
+  ///
+  /// If the navigation bar is not a descendant of a [CupertinoPageScaffold], this has no effect.
+  ///
+  /// This value defaults to true.
+  /// {@endtemplate}
+  final bool initiallyTransparent;
 
   /// {@template flutter.cupertino.CupertinoNavigationBar.brightness}
   /// The brightness of the specified [backgroundColor].
@@ -502,13 +515,10 @@ class _CupertinoNavigationBarState extends State<CupertinoNavigationBar> {
     final Color backgroundColor =
       CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context) ?? CupertinoTheme.of(context).barBackgroundColor;
 
-    final Border? effectiveBorder = Border.lerp(
-      const Border(bottom: BorderSide(width: 0.0, color: Color(0x00000000))),
-      widget.border,
-      _scrollAnimationValue,
-    );
+    final Border? initialBorder = widget.initiallyTransparent ? const Border(bottom: BorderSide(width: 0.0, color: Color(0x00000000))) : widget.border;
+    final Border? effectiveBorder = widget.border == null ? null : Border.lerp(initialBorder, widget.border, _scrollAnimationValue,);
 
-    final initialBackgroundColor = CupertinoTheme.of(context).scaffoldBackgroundColor;
+    final Color initialBackgroundColor = widget.initiallyTransparent ? (CupertinoPageScaffoldBackgroundColor.maybeOf(context) ?? backgroundColor) : backgroundColor;
     final Color effectiveBackgroundColor = Color.lerp(initialBackgroundColor, backgroundColor, _scrollAnimationValue)!;
 
     final _NavigationBarStaticComponents components = _NavigationBarStaticComponents(
@@ -652,6 +662,7 @@ class CupertinoSliverNavigationBar extends StatefulWidget {
     this.trailing,
     this.border = _kDefaultNavBarBorder,
     this.backgroundColor,
+    this.initiallyTransparent = true,
     this.brightness,
     this.padding,
     this.transitionBetweenRoutes = true,
@@ -733,6 +744,9 @@ class CupertinoSliverNavigationBar extends StatefulWidget {
   /// {@macro flutter.cupertino.CupertinoNavigationBar.backgroundColor}
   final Color? backgroundColor;
 
+  /// {@macro flutter.cupertino.CupertinoNavigationBar.initiallyTransparent}
+  final bool initiallyTransparent;
+
   /// {@macro flutter.cupertino.CupertinoNavigationBar.brightness}
   final Brightness? brightness;
 
@@ -803,6 +817,7 @@ class _CupertinoSliverNavigationBarState extends State<CupertinoSliverNavigation
           components: components,
           userMiddle: widget.middle,
           backgroundColor: CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context) ?? CupertinoTheme.of(context).barBackgroundColor,
+          initiallyTransparent: widget.initiallyTransparent,
           brightness: widget.brightness,
           border: widget.border,
           padding: widget.padding,
@@ -825,6 +840,7 @@ class _LargeTitleNavigationBarSliverDelegate
     required this.components,
     required this.userMiddle,
     required this.backgroundColor,
+    required this.initiallyTransparent,
     required this.brightness,
     required this.border,
     required this.padding,
@@ -840,6 +856,7 @@ class _LargeTitleNavigationBarSliverDelegate
   final _NavigationBarStaticComponents components;
   final Widget? userMiddle;
   final Color backgroundColor;
+  final bool initiallyTransparent;
   final Brightness? brightness;
   final Border? border;
   final EdgeInsetsDirectional? padding;
@@ -877,17 +894,11 @@ class _LargeTitleNavigationBarSliverDelegate
       middleVisible: alwaysShowMiddle ? null : !showLargeTitle,
     );
 
-    final Color effectiveBackgroundColor = Color.lerp(
-      CupertinoTheme.of(context).scaffoldBackgroundColor,
-      CupertinoDynamicColor.resolve(backgroundColor, context),
-      shrinkAnimationValue,
-    )!;
+    final Border? initialBorder = initiallyTransparent ? const Border(bottom: BorderSide(width: 0.0, color: Color(0x00000000))) : border;
+    final Border? effectiveBorder = border == null ? null : Border.lerp(initialBorder, border, shrinkAnimationValue);
 
-    final Border? effectiveBorder = border == null ? null : Border.lerp(
-      const Border(bottom: BorderSide(width: 0.0, color: Color(0x00000000))),
-      border,
-      shrinkAnimationValue,
-    );
+    final Color initialBackgroundColor = initiallyTransparent ? (CupertinoPageScaffoldBackgroundColor.maybeOf(context) ?? backgroundColor) : backgroundColor;
+    final Color effectiveBackgroundColor = Color.lerp(initialBackgroundColor, backgroundColor, shrinkAnimationValue)!;
 
     final Widget navBar = _wrapWithBackground(
       border: effectiveBorder,
