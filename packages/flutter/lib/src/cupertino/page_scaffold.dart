@@ -165,41 +165,41 @@ class _CupertinoPageScaffoldState extends State<CupertinoPageScaffold> {
       );
     }
 
-    final content = DecoratedBox(
-      decoration: BoxDecoration(
-        color: CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context)
-            ?? CupertinoTheme.of(context).scaffoldBackgroundColor,
-      ),
-      child: Stack(
-        children: <Widget>[
-          // The main content being at the bottom is added to the stack first.
-          paddedContent,
-          if (widget.navigationBar != null)
+    return ScrollNotificationObserver(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CupertinoDynamicColor.maybeResolve(widget.backgroundColor, context)
+              ?? CupertinoTheme.of(context).scaffoldBackgroundColor,
+        ),
+        child: Stack(
+          children: <Widget>[
+            // The main content being at the bottom is added to the stack first.
+            paddedContent,
+            if (widget.navigationBar != null)
+              Positioned(
+                top: 0.0,
+                left: 0.0,
+                right: 0.0,
+                child: MediaQuery.withNoTextScaling(
+                  child: widget.navigationBar!,
+                ),
+              ),
+            // Add a touch handler the size of the status bar on top of all contents
+            // to handle scroll to top by status bar taps.
             Positioned(
               top: 0.0,
               left: 0.0,
               right: 0.0,
-              child: MediaQuery.withNoTextScaling(
-                child: widget.navigationBar!,
+              height: existingMediaQuery.padding.top,
+              child: GestureDetector(
+                excludeFromSemantics: true,
+                onTap: _handleStatusBarTap,
               ),
             ),
-          // Add a touch handler the size of the status bar on top of all contents
-          // to handle scroll to top by status bar taps.
-          Positioned(
-            top: 0.0,
-            left: 0.0,
-            right: 0.0,
-            height: existingMediaQuery.padding.top,
-            child: GestureDetector(
-              excludeFromSemantics: true,
-              onTap: _handleStatusBarTap,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-
-    return ScrollNotificationObserver(child: content);
   }
 }
 
